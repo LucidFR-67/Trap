@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import os
 
 # ─────────────────────────────────────────────
-# CONFIGURATION
+# CONFIGURATION — edit these values
 # ─────────────────────────────────────────────
 TRAP_CHANNEL_ID = 1139160137970495538   # Your channel
 KICK_REASON     = "Sent a message in a restricted channel."
@@ -21,6 +21,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 async def log(message: str):
+    """Send a log message to the log channel, if configured."""
     print(message)
     if LOG_CHANNEL_ID:
         ch = bot.get_channel(LOG_CHANNEL_ID)
@@ -29,28 +30,33 @@ async def log(message: str):
 
 
 async def delete_recent_messages(guild: discord.Guild, member: discord.Member, hours: int):
+    """Delete all messages from `member` across all text channels within the last `hours` hours."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     deleted_count = 0
 
     for channel in guild.text_channels:
+        # Skip channels the bot cannot read or manage
         perms = channel.permissions_for(guild.me)
         if not (perms.read_message_history and perms.manage_messages):
             continue
 
         try:
+            # collect messages in batches
             to_delete = []
             async for msg in channel.history(limit=None, after=cutoff):
                 if msg.author.id == member.id:
                     to_delete.append(msg)
 
+            # Discord bulk_delete only works for messages < 14 days old
             if to_delete:
+                # Split into chunks of 100 (API limit)
                 for i in range(0, len(to_delete), 100):
                     chunk = to_delete[i : i + 100]
                     if len(chunk) == 1:
                         await chunk[0].delete()
                     else:
                         await channel.delete_messages(chunk)
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.5)   # rate-limit safety
                 deleted_count += len(to_delete)
 
         except discord.Forbidden:
@@ -66,13 +72,14 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user} ({bot.user.id})")
     trap_ch = bot.get_channel(TRAP_CHANNEL_ID)
     if trap_ch:
-        print(f"🪤 Trap channel: #{trap_ch.name}")
+        print(f"🪤 Trap channel: #{trap_ch.name} ({TRAP_CHANNEL_ID})")
     else:
-        print(f"⚠ WARNING: Trap channel not found. Check the ID.")
+        print(f"⚠ WARNING: Trap channel ID {TRAP_CHANNEL_ID} not found. Check the ID.")
 
 
 @bot.event
 async def on_message(message: discord.Message):
+    # Ignore DMs and the bot itself
     if not message.guild or message.author.bot:
         return
 
@@ -81,32 +88,44 @@ async def on_message(message: discord.Message):
         if not member:
             return
 
+        # Bot cannot kick members with equal or higher roles
         if member.top_role >= message.guild.me.top_role:
-            await log(f"⚠ Cannot kick **{member}** — role too high.")
+            await log(
+                f"⚠ Cannot kick **{member}** — their role is equal or higher than mine."
+            )
             return
 
-        await log(f"🚨 **{member}** triggered the trap. Starting wipe + kick...")
+        await log(
+            f"🚨 **{member}** ({member.id}) triggered the trap in "
+            f"#{message.channel.name}. Starting wipe + kick..."
+        )
 
+        # 1️⃣  Delete the triggering message first
         try:
             await message.delete()
         except discord.HTTPException:
             pass
 
+        # 2️⃣  Wipe recent messages across the server
         deleted = await delete_recent_messages(message.guild, member, WIPE_HOURS)
-        await log(f"🗑 Deleted {deleted} message(s) from **{member}**.")
+        await log(f"🗑 Deleted {deleted} message(s) from **{member}** in the last {WIPE_HOURS}h.")
 
+        # 3️⃣  Kick the member
         try:
             await member.kick(reason=KICK_REASON)
-            await log(f"👢 **{member}** has been kicked.")
+            await log(f"👢 **{member}** has been kicked. Reason: {KICK_REASON}")
         except discord.Forbidden:
             await log(f"⚠ Missing permissions to kick **{member}**.")
         except discord.HTTPException as e:
             await log(f"⚠ Failed to kick **{member}**: {e}")
 
+    # Allow other commands to run
     await bot.process_commands(message)
 
 
+# ─── Run the bot ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    # ⚠ REPLACE THIS with your new token after resetting it on the Discord dev portal
-    token = "MTUwNTcxNjY0MTAxMzU2MzQ4Mw.GlVqZ2.W5mONN6XxuF_RIWcmzO8Av9sKGnJBDcsmX--hs"
+    token = os.environ.get("DISCORD_TOKEN")
+    if not token:
+        raise ValueError("DISCORD_TOKEN environment variable is not set.")
     bot.run(token)
