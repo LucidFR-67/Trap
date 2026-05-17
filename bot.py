@@ -108,5 +108,5 @@ async def on_message(message: discord.Message):
 
 if __name__ == "__main__":
     # ⚠ REPLACE THIS with your new token after resetting it on the Discord dev portal
-    token = "fa5QzC-IPxec12eCyZ13XDTbkR9aymTn"
+    token = "MTUwNTcxNjY0MTAxMzU2MzQ4Mw.GlVqZ2.W5mONN6XxuF_RIWcmzO8Av9sKGnJBDcsmX--hs"
     bot.run(token)
