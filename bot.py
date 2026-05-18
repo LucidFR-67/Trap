@@ -9,7 +9,7 @@ import os
 # ─────────────────────────────────────────────
 TRAP_CHANNEL_ID = 1139160137970495538   # Your channel
 KICK_REASON     = "Sent a message in a restricted channel."
-WIPE_HOURS      = 1
+WIPE_MINUTES    = 10
 LOG_CHANNEL_ID  = None                  # Set to a channel ID if you want logs
 REJOIN_LINK     = "https://discord.gg/domcord"
 # ─────────────────────────────────────────────
@@ -29,8 +29,8 @@ async def log(message: str):
             await ch.send(f"🪤 **TrapBot** | {message}")
 
 
-async def delete_recent_messages(guild: discord.Guild, member: discord.Member, hours: int):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+async def delete_recent_messages(guild: discord.Guild, member: discord.Member, minutes: int):
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     deleted_count = 0
 
     for channel in guild.text_channels:
@@ -98,8 +98,8 @@ async def on_message(message: discord.Message):
             pass
 
         # 2️⃣ Wipe recent messages
-        deleted = await delete_recent_messages(message.guild, member, WIPE_HOURS)
-        await log(f"🗑 Deleted {deleted} message(s) from **{member}**.")
+        deleted = await delete_recent_messages(message.guild, member, WIPE_MINUTES)
+        await log(f"🗑 Deleted {deleted} message(s) from **{member}** in the last {WIPE_MINUTES} minutes.")
 
         # 3️⃣ DM the user before kicking
         try:
