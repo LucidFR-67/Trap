@@ -7,7 +7,7 @@ import os
 # ─────────────────────────────────────────────
 # CONFIGURATION — edit these values
 # ─────────────────────────────────────────────
-TRAP_CHANNEL_ID = 1505737232433025189   # Your channel
+TRAP_CHANNEL_ID = 1505739480064331836   # Your channel
 KICK_REASON     = "Sent a message in a restricted channel."
 WIPE_MINUTES    = 10
 LOG_CHANNEL_ID  = None                  # Set to a channel ID if you want logs
